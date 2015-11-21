@@ -137,6 +137,24 @@ public class ConnectTokenEnhancer implements TokenEnhancer {
 			}
 		}
 
+		JWTClaimsSet consentClaims = new JWTClaimsSet.Builder()
+			.issueTime(new Date())
+			.build();
+
+		JWSAlgorithm consentSigningAlg = jwtService.getDefaultSigningAlgorithm();
+		
+		JWSHeader consentHeader = new JWSHeader(consentSigningAlg, null, null, null, null, null, null, null, null, null,
+				jwtService.getDefaultSignerKeyId(),
+				null, null);
+				
+		SignedJWT consentSigned = new SignedJWT(consentHeader, consentClaims);
+
+		jwtService.signJwt(consentSigned);
+		
+		String serializedConsentSigned = consentSigned.serialize();
+		
+		logger.info("consent receipt: " + serializedConsentSigned);
+		
 		return token;
 	}
 
