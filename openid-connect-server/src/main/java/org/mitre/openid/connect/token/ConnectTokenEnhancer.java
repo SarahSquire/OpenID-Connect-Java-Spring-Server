@@ -137,16 +137,18 @@ public class ConnectTokenEnhancer implements TokenEnhancer {
 			}
 		}
 
+		String crUsername = authentication.getName();
+		UserInfo crUserInfo = userInfoService.getByUsernameAndClientId(crUsername, clientId);
+		String crSub = crUserInfo.getEmail();
 		JWTClaimsSet consentClaims = new JWTClaimsSet.Builder()
-			.issueTime(new Date())
-			.build();
+				.issueTime(new Date())
+				.subject(crSub)
+				.build();
 
 		JWSAlgorithm consentSigningAlg = jwtService.getDefaultSigningAlgorithm();
-		
 		JWSHeader consentHeader = new JWSHeader(consentSigningAlg, null, null, null, null, null, null, null, null, null,
 				jwtService.getDefaultSignerKeyId(),
 				null, null);
-				
 		SignedJWT consentSigned = new SignedJWT(consentHeader, consentClaims);
 
 		jwtService.signJwt(consentSigned);
