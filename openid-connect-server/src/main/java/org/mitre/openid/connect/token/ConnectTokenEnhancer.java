@@ -30,6 +30,7 @@ import org.mitre.openid.connect.config.ConfigurationPropertiesBean;
 import org.mitre.openid.connect.model.UserInfo;
 import org.mitre.openid.connect.service.ApprovedSiteService;
 import org.mitre.openid.connect.service.OIDCTokenService;
+import org.mitre.openid.connect.service.ReceiptGeneratorService;
 import org.mitre.openid.connect.service.UserInfoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +79,8 @@ public class ConnectTokenEnhancer implements TokenEnhancer {
 	@Autowired
 	private SymmetricKeyJWTValidatorCacheService symmetricCacheService;
 
+	@Autowired
+	private ReceiptGeneratorService receiptGeneratorService;
 
 	@Override
 	public OAuth2AccessToken enhance(OAuth2AccessToken accessToken,	OAuth2Authentication authentication) {
@@ -88,21 +91,19 @@ public class ConnectTokenEnhancer implements TokenEnhancer {
 		String clientId = originalAuthRequest.getClientId();
 		ClientDetailsEntity client = clientService.loadClientByClientId(clientId);
 
-		JWTClaimsSet claims = new JWTClaimsSet();
-
-		claims.setAudience(Lists.newArrayList(clientId));
-
-		claims.setIssuer(configBean.getIssuer());
-
-		claims.setIssueTime(new Date());
-
-		claims.setExpirationTime(token.getExpiration());
-
-		claims.setJWTID(UUID.randomUUID().toString()); // set a random NONCE in the middle of it
+		JWTClaimsSet claims = new JWTClaimsSet.Builder()
+				.audience(Lists.newArrayList(clientId))
+				.issuer(configBean.getIssuer())
+				.issueTime(new Date())
+				.expirationTime(token.getExpiration())
+				.jwtID(UUID.randomUUID().toString()) // set a random NONCE in the middle of it
+				.build();
 
 		JWSAlgorithm signingAlg = jwtService.getDefaultSigningAlgorithm();
-
-		SignedJWT signed = new SignedJWT(new JWSHeader(signingAlg), claims);
+		JWSHeader header = new JWSHeader(signingAlg, null, null, null, null, null, null, null, null, null,
+				jwtService.getDefaultSignerKeyId(),
+				null, null);
+		SignedJWT signed = new SignedJWT(header, claims);
 
 		jwtService.signJwt(signed);
 
@@ -152,9 +153,8 @@ public class ConnectTokenEnhancer implements TokenEnhancer {
 		SignedJWT consentSigned = new SignedJWT(consentHeader, consentClaims);
 
 		jwtService.signJwt(consentSigned);
-		
 		String serializedConsentSigned = consentSigned.serialize();
-		
+		receiptGeneratorService.generateConsentReceipt(crUserInfo);
 		logger.info("consent receipt: " + serializedConsentSigned);
 		
 		return token;
